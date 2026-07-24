@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import sys
 from pathlib import Path
 
@@ -69,22 +70,34 @@ def render_trainer():
 
         image_file = None
         if source == "Camera":
+            st.info("Streamlit Cloud captures still frames. Click Take Photo and the trainer will analyze that frame automatically.")
             image_file = st.camera_input("Capture a clear full-body frame")
         else:
             image_file = st.file_uploader("Upload a clear full-body frame", type=["jpg", "jpeg", "png"])
 
-        if image_file and st.button("Analyze frame", type="primary"):
+        if image_file:
+            image_bytes = image_file.getvalue()
+            image_key = hashlib.sha256(image_bytes + exercise.encode("utf-8")).hexdigest()
+            should_analyze = st.session_state.get("trainer_image_key") != image_key
+        else:
+            image_bytes = None
+            image_key = None
+            should_analyze = False
+
+        if image_file and (should_analyze or st.button("Re-analyze frame", type="primary")):
             try:
-                result = gym_trainer.analyze_image_bytes(
-                    image_file.getvalue(),
-                    exercise,
-                    st.session_state.trainer_phase,
-                    st.session_state.trainer_reps,
-                )
-                data = result.model_dump()
-                st.session_state.trainer_result = data
-                st.session_state.trainer_reps = data["reps_counted"]
-                st.session_state.trainer_phase = data["phase"]
+                with st.spinner("Tracing pose..."):
+                    result = gym_trainer.analyze_image_bytes(
+                        image_bytes,
+                        exercise,
+                        st.session_state.trainer_phase,
+                        st.session_state.trainer_reps,
+                    )
+                    data = result.model_dump()
+                    st.session_state.trainer_result = data
+                    st.session_state.trainer_reps = data["reps_counted"]
+                    st.session_state.trainer_phase = data["phase"]
+                    st.session_state.trainer_image_key = image_key
             except Exception as exc:
                 st.error(str(exc))
 
@@ -104,6 +117,8 @@ def render_trainer():
             if result["annotated_image_b64"]:
                 image_bytes = base64.b64decode(result["annotated_image_b64"])
                 st.image(image_bytes, caption="Annotated pose feedback", use_container_width=True)
+            elif not result["person_detected"]:
+                st.warning("No skeleton found in this frame. Move farther back so your head, shoulders, hips, knees, and ankles are visible.")
         else:
             st.info("Capture or upload a frame to see trainer feedback.")
 
