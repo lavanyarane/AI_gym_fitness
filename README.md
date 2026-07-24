@@ -90,6 +90,39 @@ Deploy the generated `frontend/dist` folder to your static host, and run the bac
 
 The Gym Trainer module uses the bundled `backend/models/pose_landmarker_lite.task` MediaPipe model for live pose landmarks, form scoring, rep counting, and annotated visual feedback.
 
+### Windows Run Notes
+
+Use Python 3.11, 3.12, or 3.13 on Windows. Avoid Python 3.14 if MediaPipe wheels are not available for your machine yet.
+
+Backend PowerShell:
+
+```powershell
+cd "C:\path\to\AI-gym-fitness-main"
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r backend\requirements.txt
+$env:PYTHONPATH="backend"
+uvicorn main:app --host 127.0.0.1 --port 8017
+```
+
+Check trainer runtime:
+
+```powershell
+curl http://127.0.0.1:8017/api/gym-trainer/health
+```
+
+The response must show `"status":"ok"`, `"opencv":true`, `"mediapipe_available":true`, and `"model_present":true`.
+
+Frontend PowerShell:
+
+```powershell
+cd "C:\path\to\AI-gym-fitness-main\frontend"
+npm install
+$env:VITE_API_BASE_URL="http://127.0.0.1:8017"
+npm run dev -- --host 127.0.0.1 --port 3000
+```
+
 ---
 
 ## 📁 Project Structure
